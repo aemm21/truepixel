@@ -1,8 +1,18 @@
-👁️ TruePixel: Open-Source AI Image Verification Engine
+👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
+
+👉 English version of this document
 
 TruePixel es un motor ligero, privado y de código abierto diseñado para la detección de imágenes sintéticas generadas por Inteligencia Artificial (Deepfakes, Midjourney, DALL-E, Stable Diffusion).
 
 A diferencia de los detectores comerciales que analizan imperfecciones visuales superficiales, TruePixel opera bajo un enfoque científico dual: analiza la geometría del píxel y busca anomalías físicas en el dominio de la frecuencia de Fourier que son matemáticamente imposibles de camuflar para los modelos de difusión generativa.
+
+⚠️ AVISO CRÍTICO: ENTRENAMIENTO REQUERIDO
+
+🔴 IMPORTANTE: TruePixel se entrega como una arquitectura de software. Inicialmente, los pesos del modelo se configuran de manera aleatoria.
+
+Es estrictamente necesario entrenar el modelo con tu propio conjunto de datos de imágenes reales e imágenes generadas por IA antes de hacer uso de verify.py o api.py. Ejecutar el modelo sin entrenar dará como resultado veredictos aleatorios (por lo general, indicando siempre "Sospechoso" o "Real" porque las neuronas no entrenadas no saben diferenciar los patrones).
+
+Para que TruePixel sea funcional, sigue las instrucciones de la Sección de Entrenamiento para generar tu archivo de pesos truepixel_v1.pth.
 
 🧠 Arquitectura de Red Dual
 
@@ -43,7 +53,7 @@ Descripción
 
 model.py
 
-Definición de la arquitectura de red neuronal unificada (TruePixelNet).
+Definición de la arquitectura de la red neuronal unificada (TruePixelNet).
 
 fourier.py
 
@@ -51,11 +61,11 @@ Núcleo de cálculo de espectro de magnitud de Fourier optimizado en PyTorch.
 
 dataset.py
 
-Cargador de datos con transformaciones dinámicas y normalización estándar.
+Cargador de datos con transformaciones dinámicas, normalización y validaciones de ruta.
 
 train.py
 
-Script de entrenamiento CLI avanzado con división automática de validación.
+Script de entrenamiento CLI avanzado con división automática de validación y guardado inteligente.
 
 verify.py
 
@@ -71,8 +81,8 @@ Servidor FastAPI con documentación interactiva integrada para entornos web.
 
 Asegúrate de tener un entorno virtual activo y ejecuta:
 
-# Clonar el proyecto (reemplaza TU_USUARIO por tu cuenta de GitHub)
-git clone [https://github.com/TU_USUARIO/truepixel.git](https://github.com/TU_USUARIO/truepixel.git)
+# Clonar el proyecto de forma local
+git clone [https://github.com/aemm21/truepixel.git](https://github.com/aemm21/truepixel.git)
 cd truepixel
 
 # Instalar dependencias requeridas
@@ -81,27 +91,31 @@ pip install -r requirements.txt
 
 2. Entrenamiento Paramétrico (CLI)
 
-Puedes entrenar el modelo localmente pasando parámetros configurables directamente a través de la consola:
+Antes de verificar imágenes, necesitas entrenar la red neuronal. Organiza tus carpetas colocando fotos reales en ./data/reales e imágenes de IA en ./data/sinteticas.
 
-# Ejecutar entrenamiento con hiperparámetros personalizados
+Puedes ajustar el entrenamiento directamente desde la terminal pasando argumentos:
+
+# Ejecutar entrenamiento con parámetros personalizados
 python train.py --epochs 40 --batch_size 16 --lr 0.0003 --val_split 0.20
 
 
 Parámetros Disponibles:
 
---dir_reales: Ruta al directorio de fotos tomadas por cámaras reales (Por defecto: ./data/reales).
+--dir_reales: Ruta al directorio de fotos reales (Por defecto: ./data/reales).
 
---dir_sinteticas: Ruta al directorio de imágenes sintéticas por IA (Por defecto: ./data/sinteticas).
+--dir_sinteticas: Ruta al directorio de imágenes generadas por IA (Por defecto: ./data/sinteticas).
 
 --epochs: Cantidad de veces que se procesará el set de datos.
 
 --lr: Tasa de aprendizaje (Learning Rate) para el optimizador Adam.
 
---output: Nombre del archivo de salida de los pesos (Por defecto: truepixel_v1.pth).
+--val_split: Porcentaje de datos destinados a validación (Ej: 0.20 = 20%).
+
+--output: Nombre del archivo de salida para los pesos (Por defecto: truepixel_v1.pth).
 
 🌐 Despliegue de la API Web
 
-TruePixel incluye un servidor FastAPI autolocalizable para que puedas consultar el modelo desde clientes externos (aplicaciones móviles, extensiones de navegador o sistemas de moderación):
+Una vez entrenado, TruePixel incluye un servidor FastAPI autolocalizable para que puedas consultar el modelo desde clientes externos (aplicaciones móviles, extensiones de navegador o sistemas de moderación):
 
 # Iniciar el servidor API localmente
 uvicorn api:app --reload
