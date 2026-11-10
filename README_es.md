@@ -111,7 +111,15 @@ Parámetros Disponibles:
 
 --val_split: Porcentaje de datos destinados a validación (Ej: 0.20 = 20%).
 
+--test_split: Porcentaje de datos reservados para el test final (Por defecto: 0.15).
+
+--num_workers: Procesos de carga de datos (0 = sin multiproceso).
+
+--seed: Semilla para reproducibilidad (Por defecto: 42).
+
 --output: Nombre del archivo de salida para los pesos (Por defecto: truepixel_v1.pth).
+
+La división Train/Validación/Test es **estratificada** para conservar la proporción de clases. Al final del entrenamiento se reportan Accuracy, AUC-ROC, F1, Precision, Recall y la matriz de confusión sobre el conjunto de test.
 
 🌐 Despliegue de la API Web
 

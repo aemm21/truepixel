@@ -19,13 +19,13 @@ class TruePixelDataset(Dataset):
             raise FileNotFoundError(f"¡Atención! No se encontró la carpeta de sintéticas: {directorio_ia}")
             
         # 1. Cargar imágenes reales (Etiqueta = 0)
-        for archivo in os.listdir(directorio_real):
+        for archivo in sorted(os.listdir(directorio_real)):
             if archivo.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                 self.rutas_imagenes.append(os.path.join(directorio_real, archivo))
                 self.etiquetas.append(0.0) # 0.0 significa "Real"
                 
         # 2. Cargar imágenes generadas por IA (Etiqueta = 1)
-        for archivo in os.listdir(directorio_ia):
+        for archivo in sorted(os.listdir(directorio_ia)):
             if archivo.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                 self.rutas_imagenes.append(os.path.join(directorio_ia, archivo))
                 self.etiquetas.append(1.0) # 1.0 significa "Sintética/IA"

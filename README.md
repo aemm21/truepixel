@@ -109,7 +109,15 @@ Available Parameters:
 
 --val_split: Percentage of images reserved for validation (e.g., 0.20 = 20%).
 
+--test_split: Percentage of images reserved for the final test set (Default: 0.15).
+
+--num_workers: Data loading worker processes (0 = no multiprocessing).
+
+--seed: Random seed for reproducibility (Default: 42).
+
 --output: Name of the generated weights file (Default: truepixel_v1.pth).
+
+The Train/Validation/Test split is **stratified** to preserve class proportions. At the end of training, Accuracy, AUC-ROC, F1, Precision, Recall, and the confusion matrix are reported on the test set.
 
 🌐 Web API Deployment
 
