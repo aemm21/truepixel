@@ -133,10 +133,27 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
 }
 
 
+🧪 Pruebas
+
+El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py` y `verify.py`:
+
+# Instalar dependencias de desarrollo y ejecutar las pruebas
+pip install -r requirements-dev.txt
+python -m pytest -q
+
+
+Las pruebas también se ejecutan automáticamente en cada push mediante GitHub Actions (`.github/workflows/ci.yml`, Ubuntu + PyTorch CPU).
+
 🤝 Cómo Contribuir
 
 ¡Las contribuciones de la comunidad científica y de desarrollo son las que hacen fuerte a este software!
 Para proponer mejoras en el análisis espectral o sugerir arquitecturas convolucionales más eficientes, por favor lee nuestra guía de Contribución.
+
+⚠️ Limitaciones Conocidas
+
+- **Confounder de resize/JPEG:** el reescalado a 224x224 y la compresión JPEG introducen artefactos de alta frecuencia que pueden parecerse a la firma de una IA. Entrena y evalúa con imágenes de resolución y compresión comparables entre clases para evitar que el modelo aprenda atajos.
+- **El espectro depende del preprocesado:** la rama de Fourier normaliza cada espectro por imagen y elimina el componente DC, pero un cambio de pipeline (normalización, tamaño, ventana) altera las características. Mantén el mismo preprocesado en entrenamiento e inferencia.
+- **Datos, no magia:** la calidad del veredicto depende del dataset. Incluye imágenes reales y sintéticas de múltiples generadores (Midjourney, DALL-E, Stable Diffusion) y evalúa con un conjunto de test separado.
 
 📄 Licencia
 

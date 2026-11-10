@@ -14,15 +14,29 @@ app = FastAPI(
 )
 
 # 1. Configurar el hardware y el modelo al iniciar la API
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
 modelo = TruePixelNet().to(device)
 
 ruta_modelo = 'truepixel_v1.pth'
 try:
-    modelo.load_state_dict(torch.load(ruta_modelo, map_location=device))
+    # weights_only=True evita la ejecución de código arbitrario al deserializar.
+    estado = torch.load(ruta_modelo, map_location=device, weights_only=True)
+    modelo.load_state_dict(estado)
     print(f"Modelo cargado desde {ruta_modelo}")
-except FileNotFoundError:
-    print(f"⚠️ Atención: Archivo '{ruta_modelo}' no encontrado. Usando pesos aleatorios para pruebas.")
+except FileNotFoundError as exc:
+    raise RuntimeError(
+        f"⚠️ No se encontró '{ruta_modelo}'. Entrena el modelo con train.py antes de iniciar la API."
+    ) from exc
+except Exception as exc:
+    raise RuntimeError(
+        f"⚠️ No se pudo cargar '{ruta_modelo}': {exc}. Vuelve a entrenar o verifica el archivo."
+    ) from exc
 
 modelo.eval()
 
@@ -50,10 +64,10 @@ async def verificar_imagen(file: UploadFile = File(...)):
         # Procesar la imagen
         imagen_tensor = transform(imagen).unsqueeze(0).to(device)
         
-        # Predicción
+        # Predicción: el modelo devuelve logits, aplicamos sigmoid aquí.
         with torch.no_grad():
-            prediccion = modelo(imagen_tensor)
-            probabilidad = prediccion.item()
+            logit = modelo(imagen_tensor)
+            probabilidad = torch.sigmoid(logit).item()
             
         porcentaje_ia = probabilidad * 100
         

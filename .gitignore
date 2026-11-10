@@ -1,26 +1,21 @@
-Entornos virtuales
-
+# Entornos virtuales
 venv/
 env/
 ENV/
 
-Archivos de caché de Python
-
-pycache/
+# Archivos de caché de Python
+__pycache__/
 *.py[cod]
 *$py.class
 
-Pesos del modelo (suelen ser muy pesados para el GitHub normal)
-
+# Pesos del modelo (suelen ser muy pesados para el GitHub normal)
 *.pth
 *.pt
 *.onnx
 
-Archivos del sistema operativo (Mac/Windows)
-
+# Archivos del sistema operativo (Mac/Windows)
 .DS_Store
 Thumbs.db
 
-Carpetas de datos locales (para no subir tus fotos de prueba)
-
+# Carpetas de datos locales (para no subir tus fotos de prueba)
 data/

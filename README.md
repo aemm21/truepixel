@@ -131,10 +131,27 @@ There, you can test the POST /verificar/ endpoint by uploading an image and rece
 }
 
 
+🧪 Testing
+
+The project includes a `pytest` suite for `fourier.py`, `model.py`, `dataset.py`, and `verify.py`:
+
+# Install development dependencies and run the tests
+pip install -r requirements-dev.txt
+python -m pytest -q
+
+
+Tests also run automatically on every push through GitHub Actions (`.github/workflows/ci.yml`, Ubuntu + PyTorch CPU).
+
 🤝 Contributing
 
 Contributions from the scientific and developer community are highly welcome!
 To propose enhancements to the spectral analysis or suggest more efficient convolutional backbones, please read our Contributing Guide.
+
+⚠️ Known Limitations
+
+- **Resize/JPEG confounder:** resizing to 224x224 and JPEG compression introduce high-frequency artifacts that can resemble an AI fingerprint. Train and evaluate with comparable resolution and compression across classes to avoid shortcut learning.
+- **The spectrum depends on preprocessing:** the Fourier branch normalizes each spectrum per image and removes the DC component, but changing the pipeline (normalization, size, window) changes the features. Keep preprocessing identical between training and inference.
+- **Data, not magic:** verdict quality depends on the dataset. Include real and synthetic images from multiple generators (Midjourney, DALL-E, Stable Diffusion) and evaluate on a separate test split.
 
 📄 License
 

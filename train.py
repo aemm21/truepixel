@@ -11,6 +11,9 @@ from model import TruePixelNet
 from dataset import TruePixelDataset
 
 def entrenar_modelo(args):
+    # 0. Semilla global para reproducibilidad (inicialización y orden de lotes)
+    torch.manual_seed(42)
+
     # 1. Configuración del hardware (Prioriza GPU CUDA, luego MPS para Mac, y finalmente CPU)
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -49,12 +52,21 @@ def entrenar_modelo(args):
     print(f"📊 Distribución de datos -> Entrenamiento: {train_size} | Validación: {val_size}")
 
     # 4. DataLoaders
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+    # drop_last solo si hay más de un lote; si no, el loader quedaría vacío
+    # y provocaría una división entre cero en el cálculo de la pérdida media.
+    drop_last = train_size > args.batch_size
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=drop_last)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+
+    if len(train_loader) == 0:
+        print("❌ No hay suficientes imágenes para formar un lote de entrenamiento. Agrega más datos.")
+        return
 
     # 5. Inicializar Modelo, Función de Pérdida y Optimizador
     modelo = TruePixelNet().to(device)
-    criterio = nn.BCELoss()
+    # BCEWithLogitsLoss combina Sigmoid + BCE de forma numéricamente estable.
+    # El modelo devuelve logits; aplicamos sigmoid solo para calcular métricas.
+    criterio = nn.BCEWithLogitsLoss()
     optimizador = optim.Adam(
         modelo.parameters(), 
         lr=args.lr, 
@@ -62,6 +74,7 @@ def entrenar_modelo(args):
     )
 
     best_val_loss = float('inf')
+    mejor_guardado = False
 
     # 6. Bucle de Entrenamiento y Validación
     print(f"\n🎮 Iniciando entrenamiento: {args.epochs} épocas | Tasa de aprendizaje: {args.lr}")
@@ -78,12 +91,13 @@ def entrenar_modelo(args):
             imagenes, etiquetas = imagenes.to(device), etiquetas.to(device)
             
             optimizador.zero_grad()
-            predicciones = modelo(imagenes)
-            loss = criterio(predicciones, etiquetas)
+            logits = modelo(imagenes)
+            loss = criterio(logits, etiquetas)
             loss.backward()
             optimizador.step()
             
             running_loss += loss.item()
+            predicciones = torch.sigmoid(logits)
             predicciones_binarias = (predicciones > 0.5).float()
             correct_train += (predicciones_binarias == etiquetas).sum().item()
             total_train += etiquetas.size(0)
@@ -100,10 +114,11 @@ def entrenar_modelo(args):
         with torch.no_grad():
             for imagenes, etiquetas in val_loader:
                 imagenes, etiquetas = imagenes.to(device), etiquetas.to(device)
-                predicciones = modelo(imagenes)
-                loss = criterio(predicciones, etiquetas)
+                logits = modelo(imagenes)
+                loss = criterio(logits, etiquetas)
                 
                 val_loss += loss.item()
+                predicciones = torch.sigmoid(logits)
                 predicciones_binarias = (predicciones > 0.5).float()
                 correct_val += (predicciones_binarias == etiquetas).sum().item()
                 total_val += etiquetas.size(0)
@@ -119,8 +134,15 @@ def entrenar_modelo(args):
         # Guardar el "Mejor Modelo" basado en la pérdida de validación (Early Saving)
         if epoch_val_loss < best_val_loss and epoch_val_loss > 0:
             best_val_loss = epoch_val_loss
+            mejor_guardado = True
             torch.save(modelo.state_dict(), args.output)
             print(f"💾 ¡Nuevo mejor modelo guardado en '{args.output}'!")
+
+    # Si no hubo conjunto de validación (val_split=0), guardamos el modelo final
+    # para que verify.py y api.py tengan pesos que cargar.
+    if not mejor_guardado:
+        torch.save(modelo.state_dict(), args.output)
+        print(f"💾 Modelo final guardado en '{args.output}' (sin validación).")
 
     print("=" * 80)
     print(f"🎉 ¡Entrenamiento completado! El mejor modelo de validación se guardó en: {args.output}\n")
