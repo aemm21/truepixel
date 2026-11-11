@@ -1,10 +1,26 @@
+import types
+
+import pytest
 import torch
 
-from config import IMAGE_SIZE, __version__, obtener_veredicto, transform_entrenamiento, transform_inferencia
+from config import (
+    IMAGE_SIZE,
+    __version__,
+    obtener_veredicto,
+    transform_entrenamiento,
+    transform_inferencia,
+    validar_tamano_imagen,
+)
 
 
 def test_version():
     assert __version__ == "3.0.0"
+
+
+def test_validar_tamano_imagen():
+    validar_tamano_imagen(types.SimpleNamespace(size=(100, 100)))
+    with pytest.raises(ValueError):
+        validar_tamano_imagen(types.SimpleNamespace(size=(100_000, 100_000)))
 
 
 def test_veredictos():

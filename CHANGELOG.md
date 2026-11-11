@@ -34,5 +34,13 @@ y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 - División entre cero con `drop_last` en datasets pequeños.
 - `.gitignore` con patrones mal formados y sin `__pycache__/`.
 
+### Seguridad
+- Límite de píxeles (`TRUEPIXEL_MAX_IMAGE_PIXELS`) contra decompression bombs en la API, los lotes y el dataset.
+- Endurecimiento de ZIP (`TRUEPIXEL_MAX_ZIP_FILES`, `TRUEPIXEL_MAX_ZIP_BYTES`): límite de entradas y bytes descomprimidos, normalización de rutas (zip-slip) y limpieza de temporales.
+- Sanitización de CSV injection en las exportaciones de `verify.py`.
+- `/health` y los errores 503 ya no exponen rutas internas ni mensajes de excepción.
+- Contenedor Docker ejecutado como usuario sin privilegios y CI con permisos de solo lectura.
+- Cierre explícito de los archivos de imagen abiertos con Pillow (evita fugas de descriptores en lotes grandes).
+
 ### Nota de compatibilidad
 - Los pesos anteriores a V3.0 no son compatibles con la nueva arquitectura. Es necesario reentrenar.

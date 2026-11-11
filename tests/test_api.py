@@ -33,6 +33,10 @@ def test_health_degradado_sin_pesos(monkeypatch, tmp_path):
     assert datos["model_loaded"] is False
     assert datos["status"] == "degraded"
     assert datos["version"] == __version__
+    # No debe filtrar rutas internas del servidor.
+    assert "model_path" not in datos
+    assert datos["model_file"] == "no_existe.pth"
+    assert datos["error"] == "modelo_no_disponible"
 
 
 def test_verificar_sin_modelo_devuelve_503(monkeypatch, tmp_path):
@@ -108,3 +112,19 @@ def test_explicar_tipo_invalido(monkeypatch, ruta_modelo_valido):
         )
 
     assert respuesta.status_code == 400
+
+
+def test_rechaza_imagen_con_demasiados_pixeles(monkeypatch, ruta_modelo_valido):
+    monkeypatch.setenv("TRUEPIXEL_MODEL_PATH", str(ruta_modelo_valido))
+
+    def _rechazar(_imagen):
+        raise ValueError("demasiados píxeles")
+
+    monkeypatch.setattr(api, "validar_tamano_imagen", _rechazar)
+    with TestClient(api.app) as client:
+        respuesta = client.post(
+            "/verificar/",
+            files={"file": ("muestra.png", _png_bytes(), "image/png")},
+        )
+
+    assert respuesta.status_code == 413

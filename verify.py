@@ -12,6 +12,8 @@ from PIL import Image
 from checkpoint import cargar_checkpoint
 from config import (
     EXTENSIONES_VALIDAS,
+    MAX_ZIP_FILES,
+    MAX_ZIP_UNCOMPRESSED_BYTES,
     RUTA_MODELO_POR_DEFECTO,
     VEREDICTO_IA,
     VEREDICTO_REAL,
@@ -19,6 +21,7 @@ from config import (
     obtener_veredicto,
     seleccionar_dispositivo,
     transform_inferencia,
+    validar_tamano_imagen,
 )
 from explain import generar_explicaciones
 from model import TruePixelNet
@@ -58,6 +61,13 @@ def _analizar_imagen(modelo, device, transform, imagen, version, con_explicacion
     return resultado
 
 
+def _abrir_imagen(ruta):
+    """Abre una imagen y valida su tamaño antes de decodificarla por completo."""
+    with Image.open(ruta) as imagen:
+        validar_tamano_imagen(imagen)
+        return imagen.convert("RGB")
+
+
 def verificar_imagen(ruta_imagen, ruta_modelo=RUTA_MODELO_POR_DEFECTO):
     """
     Analiza una imagen y devuelve un dict con la probabilidad y el veredicto.
@@ -65,7 +75,7 @@ def verificar_imagen(ruta_imagen, ruta_modelo=RUTA_MODELO_POR_DEFECTO):
     """
     modelo, device, metadatos = _cargar_modelo(ruta_modelo)
     transform = transform_inferencia()
-    imagen = Image.open(ruta_imagen).convert('RGB')
+    imagen = _abrir_imagen(ruta_imagen)
 
     resultado = _analizar_imagen(
         modelo, device, transform, imagen, metadatos.get("version", "desconocida")
@@ -85,19 +95,47 @@ def _listar_directorio(directorio):
 
 
 def _extraer_zip(ruta_zip):
-    """Extrae solo imágenes, con nombres únicos, evitando rutas maliciosas (zip-slip)."""
+    """
+    Extrae solo imágenes, con nombres únicos, evitando rutas maliciosas (zip-slip)
+    y limitando número de entradas y bytes descomprimidos (zip bombs).
+    """
     tempdir = tempfile.mkdtemp(prefix="truepixel_")
-    with zipfile.ZipFile(ruta_zip) as zf:
-        for indice, info in enumerate(zf.infolist()):
-            if info.is_dir():
-                continue
-            nombre = os.path.basename(info.filename)
-            if not nombre.lower().endswith(EXTENSIONES_VALIDAS):
-                continue
-            destino = os.path.join(tempdir, f"{indice:05d}_{nombre}")
-            with zf.open(info) as origen, open(destino, "wb") as salida:
-                shutil.copyfileobj(origen, salida)
-    return tempdir
+    total_bytes = 0
+    extraidos = 0
+    try:
+        with zipfile.ZipFile(ruta_zip) as zf:
+            infos = zf.infolist()
+            # Contamos todas las entradas (no solo imágenes) para evitar abusos.
+            if len(infos) > MAX_ZIP_FILES:
+                raise ValueError(
+                    f"El ZIP contiene más de {MAX_ZIP_FILES} entradas permitidas."
+                )
+            for info in infos:
+                if info.is_dir():
+                    continue
+                # Normalizamos separadores de Windows y tomamos solo el nombre base.
+                nombre = os.path.basename(info.filename.replace("\\", "/"))
+                if not nombre.lower().endswith(EXTENSIONES_VALIDAS):
+                    continue
+
+                extraidos += 1
+                destino = os.path.join(tempdir, f"{extraidos:05d}_{nombre}")
+                with zf.open(info) as origen, open(destino, "wb") as salida:
+                    while True:
+                        bloque = origen.read(64 * 1024)
+                        if not bloque:
+                            break
+                        total_bytes += len(bloque)
+                        if total_bytes > MAX_ZIP_UNCOMPRESSED_BYTES:
+                            raise ValueError(
+                                "El ZIP supera el tamaño máximo descomprimido permitido."
+                            )
+                        salida.write(bloque)
+        return tempdir
+    except Exception:
+        # Evitamos dejar directorios temporales huérfanos ante ZIP corruptos.
+        shutil.rmtree(tempdir, ignore_errors=True)
+        raise
 
 
 def _recolectar(ruta):
@@ -137,7 +175,7 @@ def verificar_lote(ruta, ruta_modelo=RUTA_MODELO_POR_DEFECTO, explicar_dir=None,
         for indice, ruta_img in enumerate(rutas):
             nombre = os.path.basename(ruta_img)
             try:
-                imagen = Image.open(ruta_img).convert("RGB")
+                imagen = _abrir_imagen(ruta_img)
                 resultado = _analizar_imagen(
                     modelo, device, transform, imagen, version,
                     con_explicacion=bool(explicar_dir)
@@ -178,12 +216,25 @@ def _resumen(resultados):
     return resumen
 
 
+def _celda_csv(valor):
+    """Neutraliza fórmulas para evitar CSV injection al abrir el archivo en hojas de cálculo."""
+    texto = str(valor)
+    if texto.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return "'" + texto
+    return texto
+
+
 def _escribir_csv(resultados, ruta_csv):
     campos = ["archivo", "probabilidad_ia_porcentaje", "veredicto", "version_modelo", "error"]
     with open(ruta_csv, "w", newline="", encoding="utf-8") as archivo:
         escritor = csv.DictWriter(archivo, fieldnames=campos, extrasaction="ignore")
         escritor.writeheader()
-        escritor.writerows(resultados)
+        for resultado in resultados:
+            fila = dict(resultado)
+            for campo in ("archivo", "error", "veredicto", "version_modelo"):
+                if fila.get(campo) is not None:
+                    fila[campo] = _celda_csv(fila[campo])
+            escritor.writerow(fila)
 
 
 def _imprimir_reporte(resultado):

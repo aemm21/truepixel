@@ -4,6 +4,7 @@ import zipfile
 import pytest
 from PIL import Image
 
+import verify
 from checkpoint import guardar_checkpoint
 from model import TruePixelNet
 from verify import _escribir_csv, verificar_lote
@@ -96,3 +97,33 @@ def test_escribir_csv(tmp_path):
     assert len(filas) == 2
     assert filas[0]["archivo"] == "a.jpg"
     assert filas[1]["error"] == "corrupta"
+
+
+def test_csv_neutraliza_formulas(tmp_path):
+    resultados = [
+        {"archivo": "=cmd|calc", "probabilidad_ia_porcentaje": 1.0, "veredicto": "IMAGEN REAL",
+         "version_modelo": "3.0.0"},
+    ]
+    ruta = tmp_path / "salida.csv"
+    _escribir_csv(resultados, ruta)
+
+    with open(ruta, newline="", encoding="utf-8") as archivo:
+        filas = list(csv.DictReader(archivo))
+
+    assert filas[0]["archivo"].startswith("'=")
+
+
+def test_zip_limita_numero_de_archivos(tmp_path, ruta_modelo, monkeypatch):
+    origen = tmp_path / "origen"
+    _crear_imagen(origen / "a.jpg")
+    _crear_imagen(origen / "b.png")
+
+    zip_path = tmp_path / "muchos.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(origen / "a.jpg", "a.jpg")
+        zf.write(origen / "b.png", "b.png")
+
+    monkeypatch.setattr(verify, "MAX_ZIP_FILES", 1)
+
+    with pytest.raises(ValueError):
+        verificar_lote(str(zip_path), str(ruta_modelo), progreso=False)

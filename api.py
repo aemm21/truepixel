@@ -19,6 +19,7 @@ from config import (
     obtener_veredicto,
     seleccionar_dispositivo,
     transform_inferencia,
+    validar_tamano_imagen,
 )
 from explain import generar_explicaciones
 from model import TruePixelNet
@@ -88,14 +89,16 @@ def home():
 def health():
     """Estado del servicio y del modelo. Útil para orquestadores y monitoreo."""
     cargado = getattr(app.state, "modelo", None) is not None
+    ruta = getattr(app.state, "ruta_modelo", None)
     return {
         "status": "ok" if cargado else "degraded",
         "version": __version__,
         "device": getattr(app.state, "dispositivo", torch.device("cpu")).type,
         "model_loaded": cargado,
-        "model_path": getattr(app.state, "ruta_modelo", None),
+        # Solo el nombre del archivo: no expone rutas internas del servidor.
+        "model_file": os.path.basename(ruta) if ruta else None,
         "model_version": getattr(app.state, "metadatos", {}).get("version"),
-        "error": getattr(app.state, "error_modelo", None),
+        "error": None if cargado else "modelo_no_disponible",
     }
 
 
@@ -119,7 +122,7 @@ async def _leer_limitado(archivo: UploadFile):
 
 
 async def _leer_imagen(archivo: UploadFile):
-    """Valida tipo, tamaño y decodifica la imagen subida."""
+    """Valida tipo, tamaño y dimensiones, y decodifica la imagen subida."""
     if archivo.content_type not in TIPOS_IMAGEN_PERMITIDOS:
         raise HTTPException(
             status_code=415,
@@ -128,17 +131,30 @@ async def _leer_imagen(archivo: UploadFile):
 
     contenido = await _leer_limitado(archivo)
     try:
-        return Image.open(io.BytesIO(contenido)).convert("RGB")
+        imagen = Image.open(io.BytesIO(contenido))
     except (UnidentifiedImageError, OSError, ValueError):
         raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+
+    try:
+        try:
+            validar_tamano_imagen(imagen)
+        except ValueError:
+            raise HTTPException(status_code=413, detail="La imagen excede el tamaño de píxeles permitido.")
+
+        try:
+            return imagen.convert("RGB")
+        except (Image.DecompressionBombError, OSError, ValueError):
+            raise HTTPException(status_code=400, detail="No se pudo decodificar la imagen.")
+    finally:
+        imagen.close()
 
 
 def _asegurar_modelo():
     if getattr(app.state, "modelo", None) is None:
+        # No exponemos la ruta ni el error interno del servidor.
         raise HTTPException(
             status_code=503,
-            detail=f"Modelo no disponible: {getattr(app.state, 'error_modelo', 'desconocido')}. "
-                   f"Entrena el modelo con train.py antes de verificar imágenes.",
+            detail="Modelo no disponible. Entrena el modelo con train.py antes de verificar imágenes.",
         )
 
 

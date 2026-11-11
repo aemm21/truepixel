@@ -3,7 +3,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-from config import EXTENSIONES_VALIDAS, transform_inferencia
+from config import EXTENSIONES_VALIDAS, transform_inferencia, validar_tamano_imagen
 
 
 class TruePixelDataset(Dataset):
@@ -74,7 +74,9 @@ class TruePixelDataset(Dataset):
             ruta_img = self.rutas_imagenes[idx]
             etiqueta = self.etiquetas[idx]
             try:
-                imagen = Image.open(ruta_img).convert('RGB')
+                with Image.open(ruta_img) as imagen:
+                    validar_tamano_imagen(imagen)
+                    imagen = imagen.convert('RGB')
                 imagen_tensor = self.transform(imagen)
                 etiqueta_tensor = torch.tensor([etiqueta], dtype=torch.float32)
                 return imagen_tensor, etiqueta_tensor
