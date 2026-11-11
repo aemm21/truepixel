@@ -1,89 +1,148 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
-import torch
-from PIL import Image
 import io
-from torchvision import transforms
+import os
+from contextlib import asynccontextmanager
+
+import torch
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image, UnidentifiedImageError
+
+from checkpoint import cargar_checkpoint
+from config import (
+    CORS_ORIGINS,
+    MAX_UPLOAD_BYTES,
+    RUTA_MODELO_POR_DEFECTO,
+    __version__,
+    obtener_veredicto,
+    seleccionar_dispositivo,
+    transform_inferencia,
+)
 from model import TruePixelNet
 
-# Inicializamos la aplicación FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Carga el modelo al arrancar. Si falla, la API queda en estado degradado (503)."""
+    app.state.dispositivo = seleccionar_dispositivo()
+    app.state.transform = transform_inferencia()
+    app.state.ruta_modelo = os.getenv("TRUEPIXEL_MODEL_PATH", RUTA_MODELO_POR_DEFECTO)
+    app.state.modelo = None
+    app.state.metadatos = {}
+    app.state.error_modelo = None
+
+    modelo = TruePixelNet().to(app.state.dispositivo)
+    try:
+        metadatos = cargar_checkpoint(modelo, app.state.ruta_modelo, app.state.dispositivo)
+        modelo.eval()
+        app.state.modelo = modelo
+        app.state.metadatos = metadatos
+        print(f"Modelo v{metadatos.get('version', __version__)} cargado desde "
+              f"{app.state.ruta_modelo} en {app.state.dispositivo.type}")
+    except Exception as exc:
+        app.state.error_modelo = str(exc)
+        print(f"⚠️ Modelo no disponible ({app.state.ruta_modelo}): {exc}")
+
+    yield
+
+    app.state.modelo = None
+
+
 app = FastAPI(
     title="TruePixel API",
     description="API Open Source para la detección de imágenes generadas por IA",
-    version="1.0.0"
+    version=__version__,
+    lifespan=lifespan,
 )
 
-# 1. Configurar el hardware y el modelo al iniciar la API
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-elif torch.backends.mps.is_available():
-    device = torch.device("mps")
-else:
-    device = torch.device("cpu")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-modelo = TruePixelNet().to(device)
+TIPOS_IMAGEN_PERMITIDOS = {
+    "image/jpeg", "image/jpg", "image/png", "image/webp",
+    "image/bmp", "image/tiff", "application/octet-stream",
+}
 
-ruta_modelo = 'truepixel_v1.pth'
-try:
-    # weights_only=True evita la ejecución de código arbitrario al deserializar.
-    estado = torch.load(ruta_modelo, map_location=device, weights_only=True)
-    modelo.load_state_dict(estado)
-    print(f"Modelo cargado desde {ruta_modelo}")
-except FileNotFoundError as exc:
-    raise RuntimeError(
-        f"⚠️ No se encontró '{ruta_modelo}'. Entrena el modelo con train.py antes de iniciar la API."
-    ) from exc
-except Exception as exc:
-    raise RuntimeError(
-        f"⚠️ No se pudo cargar '{ruta_modelo}': {exc}. Vuelve a entrenar o verifica el archivo."
-    ) from exc
-
-modelo.eval()
-
-# 2. Transformaciones estándar
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
 
 @app.get("/")
 def home():
-    return {"mensaje": "Bienvenido a TruePixel API. Usa el endpoint POST /verificar/ para analizar imágenes."}
+    return {
+        "mensaje": "Bienvenido a TruePixel API. Usa POST /verificar/ para analizar imágenes.",
+        "version": __version__,
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
+@app.get("/health")
+def health():
+    """Estado del servicio y del modelo. Útil para orquestadores y monitoreo."""
+    cargado = getattr(app.state, "modelo", None) is not None
+    return {
+        "status": "ok" if cargado else "degraded",
+        "version": __version__,
+        "device": getattr(app.state, "dispositivo", torch.device("cpu")).type,
+        "model_loaded": cargado,
+        "model_path": getattr(app.state, "ruta_modelo", None),
+        "model_version": getattr(app.state, "metadatos", {}).get("version"),
+        "error": getattr(app.state, "error_modelo", None),
+    }
+
+
+def _predecir(imagen):
+    """Inferencia síncrona; se ejecuta en un threadpool para no bloquear el event loop."""
+    tensor = app.state.transform(imagen).unsqueeze(0).to(app.state.dispositivo)
+    with torch.no_grad():
+        logit = app.state.modelo(tensor)
+        probabilidad = torch.sigmoid(logit).item()
+    return probabilidad
+
+
+async def _leer_limitado(archivo: UploadFile):
+    contenido = await archivo.read(MAX_UPLOAD_BYTES + 1)
+    if len(contenido) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"La imagen supera el tamaño máximo permitido ({MAX_UPLOAD_BYTES} bytes).",
+        )
+    return contenido
+
 
 @app.post("/verificar/")
 async def verificar_imagen(file: UploadFile = File(...)):
     """
     Recibe una imagen y devuelve el porcentaje de probabilidad de que sea generada por IA.
     """
+    if getattr(app.state, "modelo", None) is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Modelo no disponible: {getattr(app.state, 'error_modelo', 'desconocido')}. "
+                   f"Entrena el modelo con train.py antes de verificar imágenes.",
+        )
+
+    if file.content_type not in TIPOS_IMAGEN_PERMITIDOS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no soportado: {file.content_type}. Sube una imagen JPEG/PNG/WebP/BMP/TIFF.",
+        )
+
+    contenido = await _leer_limitado(file)
     try:
-        # Leer los bytes de la imagen subida
-        contenido_imagen = await file.read()
-        imagen = Image.open(io.BytesIO(contenido_imagen)).convert('RGB')
-        
-        # Procesar la imagen
-        imagen_tensor = transform(imagen).unsqueeze(0).to(device)
-        
-        # Predicción: el modelo devuelve logits, aplicamos sigmoid aquí.
-        with torch.no_grad():
-            logit = modelo(imagen_tensor)
-            probabilidad = torch.sigmoid(logit).item()
-            
-        porcentaje_ia = probabilidad * 100
-        
-        # Determinar el veredicto
-        if porcentaje_ia > 70:
-            veredicto = "ALTA PROBABILIDAD DE DEEPFAKE / IA"
-        elif porcentaje_ia > 40:
-            veredicto = "SOSPECHOSO"
-        else:
-            veredicto = "IMAGEN REAL"
-            
-        return JSONResponse(content={
-            "archivo": file.filename,
-            "probabilidad_ia_porcentaje": round(porcentaje_ia, 2),
-            "veredicto": veredicto
-        })
-        
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"error": f"Error al procesar la imagen: {str(e)}"})
+        imagen = Image.open(io.BytesIO(contenido)).convert("RGB")
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+
+    probabilidad = await run_in_threadpool(_predecir, imagen)
+    porcentaje_ia = probabilidad * 100
+
+    return {
+        "archivo": file.filename,
+        "probabilidad_ia_porcentaje": round(porcentaje_ia, 2),
+        "veredicto": obtener_veredicto(probabilidad),
+        "version_modelo": getattr(app.state, "metadatos", {}).get("version"),
+        "version_api": __version__,
+    }

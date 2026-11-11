@@ -1,30 +1,15 @@
-import os
-import math
 import random
 import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
-from torchvision import transforms
 
 # Importamos los componentes modulares de nuestro proyecto
+from checkpoint import cargar_checkpoint, guardar_checkpoint
+from config import transform_entrenamiento
 from model import TruePixelNet
 from dataset import TruePixelDataset
-
-MEDIA_IMAGENET = [0.485, 0.456, 0.406]
-STD_IMAGENET = [0.229, 0.224, 0.225]
-
-
-def _transform_entrenamiento():
-    """Aumentos ligeros para reducir sobreajuste (solo en el conjunto de train)."""
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=MEDIA_IMAGENET, std=STD_IMAGENET)
-    ])
 
 
 def dividir_estratificado(etiquetas, val_split, test_split, seed=42):
@@ -174,7 +159,7 @@ def entrenar_modelo(args):
     dataset_train = TruePixelDataset(
         directorio_real=args.dir_reales,
         directorio_ia=args.dir_sinteticas,
-        transform=_transform_entrenamiento()
+        transform=transform_entrenamiento()
     )
     if dataset_train.etiquetas != etiquetas:
         raise RuntimeError("Las etiquetas cambiaron entre cargas del dataset. Revisa los directorios de datos.")
@@ -266,13 +251,17 @@ def entrenar_modelo(args):
         if epoch_val_loss < best_val_loss and epoch_val_loss > 0:
             best_val_loss = epoch_val_loss
             mejor_guardado = True
-            torch.save(modelo.state_dict(), args.output)
+            guardar_checkpoint(modelo, args.output, {
+                "epoch": epoca + 1,
+                "val_loss": epoch_val_loss,
+                "val_metrics": metricas_val,
+            })
             print(f"💾 ¡Nuevo mejor modelo guardado en '{args.output}'!")
 
     # Si no hubo conjunto de validación (val_split=0), guardamos el modelo final
     # para que verify.py y api.py tengan pesos que cargar.
     if not mejor_guardado:
-        torch.save(modelo.state_dict(), args.output)
+        guardar_checkpoint(modelo, args.output, {"epoch": args.epochs})
         print(f"💾 Modelo final guardado en '{args.output}' (sin validación).")
 
     print("=" * 100)
@@ -280,7 +269,7 @@ def entrenar_modelo(args):
     # 8. Evaluación final sobre el conjunto de test (con los mejores pesos)
     if len(test_idx) > 0:
         try:
-            modelo.load_state_dict(torch.load(args.output, map_location=device, weights_only=True))
+            cargar_checkpoint(modelo, args.output, device)
             test_loss, metricas_test = evaluar(modelo, test_loader, criterio, device)
             print(f"🧪 TEST | Loss: {test_loss:.4f} | {_resumen(metricas_test)}")
             print(f"   Matriz de confusión -> TP: {metricas_test['tp']} | TN: {metricas_test['tn']} | "
@@ -291,7 +280,7 @@ def entrenar_modelo(args):
     print(f"🎉 ¡Entrenamiento completado! El mejor modelo se guardó en: {args.output}\n")
 
 
-if __name__ == '__main__':
+def main():
     # Analizador de argumentos para facilitar las contribuciones desde la terminal
     parser = argparse.ArgumentParser(description="TruePixel: Entrenamiento de Redes Convolucionales para Verificación de Imágenes")
 
@@ -314,3 +303,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     entrenar_modelo(args)
+
+
+if __name__ == '__main__':
+    main()

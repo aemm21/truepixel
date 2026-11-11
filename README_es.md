@@ -1,5 +1,7 @@
 👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
 
+**Versión 3.0.0** — ver [CHANGELOG.md](CHANGELOG.md)
+
 👉 English version of this document
 
 TruePixel es un motor ligero, privado y de código abierto diseñado para la detección de imágenes sintéticas generadas por Inteligencia Artificial (Deepfakes, Midjourney, DALL-E, Stable Diffusion).
@@ -47,33 +49,19 @@ Rama de Frecuencia (Espectral): Convierte el tensor de la imagen mediante una Tr
 
 El proyecto mantiene una estructura modular y limpia para facilitar la extensibilidad del código:
 
-Archivo
-
-Descripción
-
-model.py
-
-Definición de la arquitectura de la red neuronal unificada (TruePixelNet).
-
-fourier.py
-
-Núcleo de cálculo de espectro de magnitud de Fourier optimizado en PyTorch.
-
-dataset.py
-
-Cargador de datos con transformaciones dinámicas, normalización y validaciones de ruta.
-
-train.py
-
-Script de entrenamiento CLI avanzado con división automática de validación y guardado inteligente.
-
-verify.py
-
-Herramienta local rápida para evaluar imágenes individuales desde la terminal.
-
-api.py
-
-Servidor FastAPI con documentación interactiva integrada para entornos web.
+| Archivo | Descripción |
+|---|---|
+| `model.py` | Arquitectura de la red neuronal unificada (TruePixelNet). |
+| `fourier.py` | Espectro de magnitud de Fourier optimizado en PyTorch. |
+| `dataset.py` | Cargador de datos determinista, recursivo y tolerante a imágenes corruptas. |
+| `config.py` | Configuración centralizada: rutas, umbrales, límites, CORS, device y transformaciones. |
+| `checkpoint.py` | Guardado/carga de pesos con metadatos y compatibilidad con `state_dict` antiguos. |
+| `train.py` | Entrenamiento CLI con split estratificado Train/Val/Test y métricas AUC/F1. |
+| `verify.py` | Herramienta CLI para evaluar una imagen (reporte legible o `--json`). |
+| `api.py` | Servidor FastAPI con `/health`, CORS y documentación interactiva. |
+| `tests/` | Suite de `pytest` (Fourier, modelo, dataset, métricas, checkpoints y API). |
+| `Dockerfile` | Imagen de producción con PyTorch CPU y uvicorn. |
+| `CHANGELOG.md` | Historial de versiones. |
 
 🚀 Guía de Inicio Rápido
 
@@ -137,13 +125,36 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
 {
   "archivo": "muestra_sospechosa.png",
   "probabilidad_ia_porcentaje": 91.43,
-  "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA"
+  "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA",
+  "version_modelo": "3.0.0",
+  "version_api": "3.0.0"
 }
+
+Endpoints disponibles:
+
+- `GET /health`: estado del servicio, device, versión y si el modelo está cargado.
+- `POST /verificar/`: analiza una imagen. Devuelve `503` si el modelo no está entrenado, `413` si supera el límite y `415` si el tipo no es una imagen soportada.
+
+Variables de entorno:
+
+| Variable | Por defecto | Descripción |
+|---|---|---|
+| `TRUEPIXEL_MODEL_PATH` | `truepixel_v1.pth` | Ruta del checkpoint. |
+| `TRUEPIXEL_MAX_UPLOAD_BYTES` | `10485760` (10 MB) | Tamaño máximo de subida. |
+| `TRUEPIXEL_UMBRAL_IA` | `0.70` | Umbral de "alta probabilidad de IA". |
+| `TRUEPIXEL_UMBRAL_SOSPECHOSO` | `0.40` | Umbral de "sospechoso". |
+| `TRUEPIXEL_CORS_ORIGINS` | `*` | Orígenes permitidos, separados por coma. |
+
+Despliegue con Docker:
+
+# Construir la imagen y montar tus pesos entrenados
+docker build -t truepixel .
+docker run -p 8000:8000 -v "$PWD/truepixel_v1.pth:/app/truepixel_v1.pth" truepixel
 
 
 🧪 Pruebas
 
-El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py` y `verify.py`:
+El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `train.py` (métricas) y la API (incluida una inferencia end-to-end):
 
 # Instalar dependencias de desarrollo y ejecutar las pruebas
 pip install -r requirements-dev.txt

@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.py[cod]
+.venv
+venv
+env
+data
+*.pth
+*.pt
+*.onnx
+tests
+.pytest_cache
+.DS_Store
