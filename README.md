@@ -54,6 +54,7 @@ The project maintains a clean, modular structure for easy extensibility:
 | `dataset.py` | Deterministic, recursive data loader tolerant to corrupt images. |
 | `config.py` | Centralized configuration: paths, thresholds, limits, CORS, device, and transforms. |
 | `checkpoint.py` | Versioned weight saving/loading with backward compatibility for plain `state_dict`. |
+| `explain.py` | Explainability: Grad-CAM and colorized spectral map. |
 | `train.py` | CLI training with stratified Train/Val/Test split and AUC/F1 metrics. |
 | `verify.py` | CLI tool to evaluate one image (human-readable report or `--json`). |
 | `api.py` | FastAPI server with `/health`, CORS, and interactive docs. |
@@ -107,6 +108,22 @@ Available Parameters:
 
 The Train/Validation/Test split is **stratified** to preserve class proportions. At the end of training, Accuracy, AUC-ROC, F1, Precision, Recall, and the confusion matrix are reported on the test set.
 
+🔎 Local and Batch Verification
+
+`verify.py` accepts a single image, a directory (recursive), or a ZIP:
+
+# Single image
+python verify.py photo.jpg
+
+# Directory with CSV output and heatmaps (Grad-CAM + spectrum)
+python verify.py ./images --csv results.csv --explicar ./maps
+
+# ZIP with JSON output
+python verify.py batch.zip --json > results.json
+
+
+Each analysis can generate two explanatory images: `*_overlay.png` (regions that most influence the verdict) and `*_espectral.png` (Fourier spectrum).
+
 🌐 Web API Deployment
 
 Once trained, TruePixel includes a FastAPI server so you can query the model from external clients (mobile apps, browser extensions, or moderation backends):
@@ -132,6 +149,7 @@ Available endpoints:
 
 - `GET /health`: service status, device, version, and whether the model is loaded.
 - `POST /verificar/`: analyzes an image. Returns `503` if the model is not trained, `413` if it exceeds the size limit, and `415` for unsupported file types.
+- `POST /explicar/?tipo=overlay|espectral`: returns a PNG with the Grad-CAM or the Fourier spectrum.
 
 Environment variables:
 
@@ -152,7 +170,7 @@ docker run -p 8000:8000 -v "$PWD/truepixel_v1.pth:/app/truepixel_v1.pth" truepix
 
 🧪 Testing
 
-The project includes a `pytest` suite for `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `train.py` (metrics), and the API (including an end-to-end inference test):
+The project includes a `pytest` suite for `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `explain.py`, `train.py` (metrics), batch analysis, and the API (including an end-to-end inference test):
 
 # Install development dependencies and run the tests
 pip install -r requirements-dev.txt

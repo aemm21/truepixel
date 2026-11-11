@@ -56,6 +56,7 @@ El proyecto mantiene una estructura modular y limpia para facilitar la extensibi
 | `dataset.py` | Cargador de datos determinista, recursivo y tolerante a imágenes corruptas. |
 | `config.py` | Configuración centralizada: rutas, umbrales, límites, CORS, device y transformaciones. |
 | `checkpoint.py` | Guardado/carga de pesos con metadatos y compatibilidad con `state_dict` antiguos. |
+| `explain.py` | Explicabilidad: Grad-CAM y mapa espectral coloreado. |
 | `train.py` | Entrenamiento CLI con split estratificado Train/Val/Test y métricas AUC/F1. |
 | `verify.py` | Herramienta CLI para evaluar una imagen (reporte legible o `--json`). |
 | `api.py` | Servidor FastAPI con `/health`, CORS y documentación interactiva. |
@@ -109,6 +110,22 @@ Parámetros Disponibles:
 
 La división Train/Validación/Test es **estratificada** para conservar la proporción de clases. Al final del entrenamiento se reportan Accuracy, AUC-ROC, F1, Precision, Recall y la matriz de confusión sobre el conjunto de test.
 
+🔎 Verificación Local y por Lotes
+
+`verify.py` acepta una imagen, una carpeta (recursiva) o un ZIP:
+
+# Una imagen
+python verify.py foto.jpg
+
+# Carpeta con salida CSV y mapas de calor (Grad-CAM + espectro)
+python verify.py ./imagenes --csv resultados.csv --explicar ./mapas
+
+# ZIP con salida JSON
+python verify.py lote.zip --json > resultados.json
+
+
+Cada análisis puede generar dos imágenes explicativas: `*_overlay.png` (zonas que más influyen en el veredicto) y `*_espectral.png` (espectro de Fourier).
+
 🌐 Despliegue de la API Web
 
 Una vez entrenado, TruePixel incluye un servidor FastAPI autolocalizable para que puedas consultar el modelo desde clientes externos (aplicaciones móviles, extensiones de navegador o sistemas de moderación):
@@ -134,6 +151,7 @@ Endpoints disponibles:
 
 - `GET /health`: estado del servicio, device, versión y si el modelo está cargado.
 - `POST /verificar/`: analiza una imagen. Devuelve `503` si el modelo no está entrenado, `413` si supera el límite y `415` si el tipo no es una imagen soportada.
+- `POST /explicar/?tipo=overlay|espectral`: devuelve un PNG con el Grad-CAM o el espectro de Fourier.
 
 Variables de entorno:
 
@@ -154,7 +172,7 @@ docker run -p 8000:8000 -v "$PWD/truepixel_v1.pth:/app/truepixel_v1.pth" truepix
 
 🧪 Pruebas
 
-El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `train.py` (métricas) y la API (incluida una inferencia end-to-end):
+El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `explain.py`, `train.py` (métricas), análisis por lotes y la API (incluida una inferencia end-to-end):
 
 # Instalar dependencias de desarrollo y ejecutar las pruebas
 pip install -r requirements-dev.txt

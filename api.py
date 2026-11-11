@@ -1,11 +1,13 @@
 import io
 import os
+import threading
 from contextlib import asynccontextmanager
 
 import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
 
 from checkpoint import cargar_checkpoint
@@ -18,7 +20,10 @@ from config import (
     seleccionar_dispositivo,
     transform_inferencia,
 )
+from explain import generar_explicaciones
 from model import TruePixelNet
+
+_EXPLAIN_LOCK = threading.Lock()
 
 
 @asynccontextmanager
@@ -71,10 +76,11 @@ TIPOS_IMAGEN_PERMITIDOS = {
 @app.get("/")
 def home():
     return {
-        "mensaje": "Bienvenido a TruePixel API. Usa POST /verificar/ para analizar imágenes.",
+        "mensaje": "Bienvenido a TruePixel API. Usa POST /verificar/ para analizar imágenes o POST /explicar/ para ver mapas de calor.",
         "version": __version__,
         "docs": "/docs",
         "health": "/health",
+        "explicar": "/explicar/",
     }
 
 
@@ -112,11 +118,22 @@ async def _leer_limitado(archivo: UploadFile):
     return contenido
 
 
-@app.post("/verificar/")
-async def verificar_imagen(file: UploadFile = File(...)):
-    """
-    Recibe una imagen y devuelve el porcentaje de probabilidad de que sea generada por IA.
-    """
+async def _leer_imagen(archivo: UploadFile):
+    """Valida tipo, tamaño y decodifica la imagen subida."""
+    if archivo.content_type not in TIPOS_IMAGEN_PERMITIDOS:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Tipo de archivo no soportado: {archivo.content_type}. Sube una imagen JPEG/PNG/WebP/BMP/TIFF.",
+        )
+
+    contenido = await _leer_limitado(archivo)
+    try:
+        return Image.open(io.BytesIO(contenido)).convert("RGB")
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+
+
+def _asegurar_modelo():
     if getattr(app.state, "modelo", None) is None:
         raise HTTPException(
             status_code=503,
@@ -124,17 +141,14 @@ async def verificar_imagen(file: UploadFile = File(...)):
                    f"Entrena el modelo con train.py antes de verificar imágenes.",
         )
 
-    if file.content_type not in TIPOS_IMAGEN_PERMITIDOS:
-        raise HTTPException(
-            status_code=415,
-            detail=f"Tipo de archivo no soportado: {file.content_type}. Sube una imagen JPEG/PNG/WebP/BMP/TIFF.",
-        )
 
-    contenido = await _leer_limitado(file)
-    try:
-        imagen = Image.open(io.BytesIO(contenido)).convert("RGB")
-    except (UnidentifiedImageError, OSError, ValueError):
-        raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+@app.post("/verificar/")
+async def verificar_imagen(file: UploadFile = File(...)):
+    """
+    Recibe una imagen y devuelve el porcentaje de probabilidad de que sea generada por IA.
+    """
+    _asegurar_modelo()
+    imagen = await _leer_imagen(file)
 
     probabilidad = await run_in_threadpool(_predecir, imagen)
     porcentaje_ia = probabilidad * 100
@@ -146,3 +160,26 @@ async def verificar_imagen(file: UploadFile = File(...)):
         "version_modelo": getattr(app.state, "metadatos", {}).get("version"),
         "version_api": __version__,
     }
+
+
+@app.post("/explicar/")
+async def explicar_imagen(file: UploadFile = File(...), tipo: str = "overlay"):
+    """
+    Devuelve una imagen PNG con la explicación del veredicto.
+    `tipo` puede ser `overlay` (Grad-CAM sobre la imagen) o `espectral` (espectro de Fourier).
+    """
+    _asegurar_modelo()
+    if tipo not in ("overlay", "espectral"):
+        raise HTTPException(status_code=400, detail="El parámetro 'tipo' debe ser 'overlay' o 'espectral'.")
+
+    imagen = await _leer_imagen(file)
+
+    def _generar():
+        with _EXPLAIN_LOCK:
+            tensor = app.state.transform(imagen).unsqueeze(0).to(app.state.dispositivo)
+            return generar_explicaciones(app.state.modelo, tensor, imagen)
+
+    explicaciones = await run_in_threadpool(_generar)
+    buffer = io.BytesIO()
+    explicaciones[tipo].save(buffer, format="PNG")
+    return Response(content=buffer.getvalue(), media_type="image/png")

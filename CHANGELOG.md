@@ -7,6 +7,9 @@ y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 ## [3.0.0] - 2026-11-11
 
 ### Añadido
+- `explain.py`: explicabilidad con Grad-CAM sobre la rama espacial y mapa del espectro de Fourier superpuesto/coloreado.
+- `verify.py`: análisis por lote de archivos, carpetas recursivas y ZIP, con salida CSV/JSON, resumen y `--explicar` para guardar mapas de calor.
+- API: endpoint `POST /explicar/` que devuelve un PNG (`overlay` o `espectral`).
 - `config.py`: configuración centralizada (tamaño de imagen, normalización, umbrales, límites, CORS, device y transformaciones).
 - `checkpoint.py`: guardado/carga de pesos con metadatos y compatibilidad con `state_dict` antiguos.
 - API de producción: `lifespan`, endpoint `/health`, CORS, límite de tamaño de subida (413), validación de tipo (415), estado degradado con 503 e inferencia en threadpool.

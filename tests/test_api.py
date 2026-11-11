@@ -84,3 +84,27 @@ def test_rechaza_archivo_demasiado_grande(monkeypatch, ruta_modelo_valido):
         )
 
     assert respuesta.status_code == 413
+
+
+def test_explicar_devuelve_png(monkeypatch, ruta_modelo_valido):
+    monkeypatch.setenv("TRUEPIXEL_MODEL_PATH", str(ruta_modelo_valido))
+    with TestClient(api.app) as client:
+        respuesta = client.post(
+            "/explicar/?tipo=overlay",
+            files={"file": ("muestra.png", _png_bytes(), "image/png")},
+        )
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"] == "image/png"
+    assert respuesta.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_explicar_tipo_invalido(monkeypatch, ruta_modelo_valido):
+    monkeypatch.setenv("TRUEPIXEL_MODEL_PATH", str(ruta_modelo_valido))
+    with TestClient(api.app) as client:
+        respuesta = client.post(
+            "/explicar/?tipo=otro",
+            files={"file": ("muestra.png", _png_bytes(), "image/png")},
+        )
+
+    assert respuesta.status_code == 400

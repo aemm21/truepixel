@@ -27,4 +27,4 @@ truepixel-verify = "verify:main"
 truepixel-train = "train:main"
 
 [tool.setuptools]
-py-modules = ["api", "checkpoint", "config", "dataset", "fourier", "model", "train", "verify"]
+py-modules = ["api", "checkpoint", "config", "dataset", "explain", "fourier", "model", "train", "verify"]
