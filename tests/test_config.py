@@ -14,7 +14,7 @@ from config import (
 
 
 def test_version():
-    assert __version__ == "3.2.0"
+    assert __version__ == "3.3.0"
 
 
 def test_validar_tamano_imagen():
@@ -26,6 +26,8 @@ def test_validar_tamano_imagen():
 def test_veredictos():
     assert "ALTA" in obtener_veredicto(0.95)
     assert obtener_veredicto(0.5) == "SOSPECHOSO"
+    assert obtener_veredicto(0.44) == "IMAGEN REAL"
+    assert obtener_veredicto(0.46) == "SOSPECHOSO"
     assert obtener_veredicto(0.1) == "IMAGEN REAL"
 
 

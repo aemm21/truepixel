@@ -1,6 +1,6 @@
 👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
 
-**Versión 3.2.0** — ver [CHANGELOG.md](CHANGELOG.md)
+**Versión 3.3.0** — ver [CHANGELOG.md](CHANGELOG.md)
 
 👉 English version of this document
 
@@ -14,7 +14,7 @@ A diferencia de los detectores comerciales que analizan imperfecciones visuales 
 
 Es estrictamente necesario entrenar el modelo con tu propio conjunto de datos de imágenes reales e imágenes generadas por IA antes de hacer uso de verify.py o api.py. Ejecutar el modelo sin entrenar dará como resultado veredictos aleatorios (por lo general, indicando siempre "Sospechoso" o "Real" porque las neuronas no entrenadas no saben diferenciar los patrones).
 
-Para que TruePixel sea funcional, sigue las instrucciones de la Sección de Entrenamiento para generar tu archivo de pesos truepixel_v1.pth.
+Para que TruePixel sea funcional, sigue las instrucciones de la Sección de Entrenamiento para generar tu archivo de pesos (por ejemplo, `truepixel_v2.pth`).
 
 🧠 Arquitectura de Red Dual
 
@@ -129,6 +129,31 @@ Parámetros: `--umbral` (0.5 por defecto), `--json`, `--csv`, `--batch_size`, `-
 
 El barrido de umbrales se calcula sobre el mismo conjunto evaluado; para producción, ajusta el umbral en validación y confírmalo en un test independiente.
 
+📈 Resultados de Referencia
+
+Checkpoint `truepixel_v2.pth` (ResNet18 + Fourier), evaluado sobre el test oficial reservado:
+
+| Métrica | Valor |
+|---|---|
+| Imágenes | 11.995 (5.995 reales / 6.000 IA) |
+| Accuracy | 89.32% |
+| AUC-ROC | 0.9597 |
+| F1 | 0.8919 |
+| Precision | 0.9037 |
+| Recall | 0.8803 |
+| Especificidad | 0.9061 |
+
+Con umbral base 0.50. El mejor F1 se obtuvo en 0.43 (F1 0.8933) y el mejor balanced accuracy en 0.49. La curva es plana entre 0.40 y 0.50, por lo que se usa `0.45` como umbral de "sospechoso" y `0.70` para "alta probabilidad de IA". Cinco imágenes reales se omitieron por superar el límite de píxeles.
+
+Este test está balanceado y el umbral se ajustó sobre el mismo conjunto; valida con imágenes externas antes de usarlo en producción. Para usar este checkpoint en `verify.py` o la API:
+
+# CLI
+python verify.py foto.jpg --modelo truepixel_v2.pth
+
+# API (PowerShell)
+$env:TRUEPIXEL_MODEL_PATH="C:\truepixel\truepixel_v2.pth"
+uvicorn api:app --reload
+
 🔎 Verificación Local y por Lotes
 
 `verify.py` acepta una imagen, una carpeta (recursiva) o un ZIP:
@@ -162,8 +187,8 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
   "archivo": "muestra_sospechosa.png",
   "probabilidad_ia_porcentaje": 91.43,
   "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA",
-  "version_modelo": "3.2.0",
-  "version_api": "3.2.0"
+  "version_modelo": "3.3.0",
+  "version_api": "3.3.0"
 }
 
 Endpoints disponibles:
@@ -179,7 +204,7 @@ Variables de entorno:
 | `TRUEPIXEL_MODEL_PATH` | `truepixel_v1.pth` | Ruta del checkpoint. |
 | `TRUEPIXEL_MAX_UPLOAD_BYTES` | `10485760` (10 MB) | Tamaño máximo de subida. |
 | `TRUEPIXEL_UMBRAL_IA` | `0.70` | Umbral de "alta probabilidad de IA". |
-| `TRUEPIXEL_UMBRAL_SOSPECHOSO` | `0.40` | Umbral de "sospechoso". |
+| `TRUEPIXEL_UMBRAL_SOSPECHOSO` | `0.45` | Umbral de "sospechoso". |
 | `TRUEPIXEL_CORS_ORIGINS` | `*` | Orígenes permitidos, separados por coma. |
 
 Despliegue con Docker:

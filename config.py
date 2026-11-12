@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"
 
 # --- Imagen / normalización -------------------------------------------------
 IMAGE_SIZE = 224
@@ -17,7 +17,7 @@ EXTENSIONES_VALIDAS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif"
 # --- Modelo / inferencia ----------------------------------------------------
 RUTA_MODELO_POR_DEFECTO = os.getenv("TRUEPIXEL_MODEL_PATH", "truepixel_v1.pth")
 UMBRAL_IA = float(os.getenv("TRUEPIXEL_UMBRAL_IA", "0.70"))
-UMBRAL_SOSPECHOSO = float(os.getenv("TRUEPIXEL_UMBRAL_SOSPECHOSO", "0.40"))
+UMBRAL_SOSPECHOSO = float(os.getenv("TRUEPIXEL_UMBRAL_SOSPECHOSO", "0.45"))
 MAX_UPLOAD_BYTES = int(os.getenv("TRUEPIXEL_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
 # Protección contra "decompression bombs": una imagen pequeña comprimida puede
 # decodificarse en cientos de millones de píxeles y agotar la memoria.

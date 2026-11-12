@@ -4,6 +4,16 @@ Todas las modificaciones relevantes de este proyecto se documentan aquí.
 El formato sigue una adaptación de [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.3.0] - 2026-11-12
+
+### Cambiado
+- `config.py`: el umbral "sospechoso" por defecto pasa de 0.40 a 0.45 tras evaluar `truepixel_v2.pth` en el test oficial (AUC 0.9597, F1 0.8919, Accuracy 89.32%).
+- `README.md` / `README_es.md`: sección de resultados de referencia con las métricas del test oficial y los umbrales recomendados (0.45 / 0.70).
+- Versión 3.3.0.
+
+### Añadido
+- Tests de los límites del veredicto con el nuevo umbral.
+
 ## [3.2.0] - 2026-11-12
 
 ### Añadido
