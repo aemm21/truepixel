@@ -1,6 +1,6 @@
 👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
 
-**Versión 3.3.0** — ver [CHANGELOG.md](CHANGELOG.md)
+**Versión 3.4.0** — ver [CHANGELOG.md](CHANGELOG.md)
 
 👉 English version of this document
 
@@ -59,6 +59,7 @@ El proyecto mantiene una estructura modular y limpia para facilitar la extensibi
 | `explain.py` | Explicabilidad: Grad-CAM y mapa espectral coloreado. |
 | `train.py` | Entrenamiento CLI con split estratificado Train/Val/Test y métricas AUC/F1. |
 | `evaluate.py` | Evaluación con AUC/F1/matriz de confusión y barrido de umbrales sobre carpetas etiquetadas. |
+| `evaluar_ood.ps1` | Script PowerShell para evaluar el modelo contra cada generador OOD y generar un CSV resumen. |
 | `verify.py` | Herramienta CLI para evaluar una imagen (reporte legible o `--json`). |
 | `api.py` | Servidor FastAPI con `/health`, CORS y documentación interactiva. |
 | `tests/` | Suite de `pytest` (Fourier, modelo, dataset, métricas, checkpoints, evaluación y API). |
@@ -91,6 +92,9 @@ python train.py --epochs 40 --batch_size 16 --lr 0.0003 --val_split 0.20
 # Reanudar tras una interrupción (mismos argumentos y mismo --output)
 python train.py --resume --output truepixel_v2.pth
 
+# Fine-tuning desde un checkpoint (reinicia época y optimizador)
+python train.py --init truepixel_v2.pth --output truepixel_v3.pth --epochs 3 --lr 0.00001 --batch_size 8
+
 El primer entrenamiento descarga los pesos de ResNet18 preentrenada en ImageNet (~45 MB).
 
 
@@ -115,6 +119,8 @@ Parámetros Disponibles:
 --output: Nombre del archivo de salida para los pesos (Por defecto: truepixel_v1.pth).
 
 --resume: Continúa desde el checkpoint indicado en --output, restaurando época, mejor pérdida de validación y estado del optimizador.
+
+--init: Inicializa los pesos desde un checkpoint para fine-tuning, reiniciando época y optimizador (no se puede combinar con --resume).
 
 La división Train/Validación/Test es **estratificada** para conservar la proporción de clases. Al final del entrenamiento se reportan Accuracy, AUC-ROC, F1, Precision, Recall y la matriz de confusión sobre el conjunto de test.
 
@@ -154,6 +160,21 @@ python verify.py foto.jpg --modelo truepixel_v2.pth
 $env:TRUEPIXEL_MODEL_PATH="C:\truepixel\truepixel_v2.pth"
 uvicorn api:app --reload
 
+🧪 Validación OOD por Generador
+
+Organiza las imágenes externas en carpetas `ai_*` y ejecuta el script para evaluar cada generador por separado:
+
+C:\datasets\ood\
+  real\
+  ai_midjourney\
+  ai_sd15\
+  ai_sdxl\
+  ai_flux\
+
+.\evaluar_ood.ps1 -DirReales C:\datasets\ood\real -DirOod C:\datasets\ood -Modelo truepixel_v2.pth
+
+El script genera `resultados_ood\ai_*.csv` (predicciones por imagen), `ai_*.json` (resumen) y `resumen_ood.csv` (comparativa). Parámetros útiles: `-Salida`, `-BatchSize`, `-NumWorkers`, `-Umbral`, `-MaxImagePixels`, `-SinRecursivo` y `-Python` si el intérprete no está en `.venv\Scripts\python.exe`.
+
 🔎 Verificación Local y por Lotes
 
 `verify.py` acepta una imagen, una carpeta (recursiva) o un ZIP:
@@ -187,8 +208,8 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
   "archivo": "muestra_sospechosa.png",
   "probabilidad_ia_porcentaje": 91.43,
   "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA",
-  "version_modelo": "3.3.0",
-  "version_api": "3.3.0"
+  "version_modelo": "3.4.0",
+  "version_api": "3.4.0"
 }
 
 Endpoints disponibles:
