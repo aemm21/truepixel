@@ -30,7 +30,7 @@ from model import TruePixelNet
 def _cargar_modelo(ruta_modelo):
     """Carga el modelo una sola vez (para lotes) y devuelve modelo, device y metadatos."""
     device = seleccionar_dispositivo()
-    modelo = TruePixelNet().to(device)
+    modelo = TruePixelNet(pretrained=False).to(device)
     try:
         metadatos = cargar_checkpoint(modelo, ruta_modelo, device)
     except FileNotFoundError as exc:

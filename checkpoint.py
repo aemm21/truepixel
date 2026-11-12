@@ -5,9 +5,10 @@ import torch
 from config import __version__
 
 
-def guardar_checkpoint(modelo, ruta, metadatos=None):
+def guardar_checkpoint(modelo, ruta, metadatos=None, optimizador=None):
     """
     Guarda pesos + metadatos en un único archivo.
+    Si se pasa un optimizador, también guarda su estado para poder reanudar.
     El formato es un dict con 'state_dict', por lo que sigue siendo compatible
     con herramientas estándar de PyTorch.
     """
@@ -18,6 +19,8 @@ def guardar_checkpoint(modelo, ruta, metadatos=None):
     }
     if metadatos:
         payload.update(metadatos)
+    if optimizador is not None:
+        payload["optimizer_state_dict"] = optimizador.state_dict()
     torch.save(payload, ruta)
 
 

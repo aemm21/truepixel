@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     app.state.metadatos = {}
     app.state.error_modelo = None
 
-    modelo = TruePixelNet().to(app.state.dispositivo)
+    modelo = TruePixelNet(pretrained=False).to(app.state.dispositivo)
     try:
         metadatos = cargar_checkpoint(modelo, app.state.ruta_modelo, app.state.dispositivo)
         modelo.eval()

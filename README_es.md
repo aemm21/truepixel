@@ -1,6 +1,6 @@
 👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
 
-**Versión 3.0.0** — ver [CHANGELOG.md](CHANGELOG.md)
+**Versión 3.1.0** — ver [CHANGELOG.md](CHANGELOG.md)
 
 👉 English version of this document
 
@@ -28,7 +28,7 @@ TruePixel procesa cada archivo de imagen a través de dos canales paralelos inde
               ▼                               ▼
      [ Rama Espacial ]             [ Rama de Frecuencia ]
   - Análisis de píxeles/texturas -  - Transformada de Fourier (FFT) -
-  - Convolución 2D (RGB)         -  - Magnitud logarítmica espectral-
+  - ResNet18 (ImageNet)          -  - Magnitud logarítmica espectral-
               │                               │
               └───────────────┬───────────────┘
                               ▼
@@ -41,7 +41,7 @@ TruePixel procesa cada archivo de imagen a través de dos canales paralelos inde
                      📊 Probabilidad de IA %
 
 
-Rama Espacial (Visual): Una red neuronal convolucional (CNN) optimizada para identificar artefactos de texturas, incoherencias de bordes e inconsistencias de color locales.
+Rama Espacial (Visual): Un backbone ResNet18 preentrenado en ImageNet, optimizado para identificar artefactos de texturas, incoherencias de bordes e inconsistencias de color locales.
 
 Rama de Frecuencia (Espectral): Convierte el tensor de la imagen mediante una Transformada Rápida de Fourier 2D ($\text{FFT}_{2\text{D}}$). Las imágenes creadas por IA exhiben patrones periódicos y picos geométricos en las altas frecuencias debido a los procesos matemáticos de upsampling e interpolación de píxeles.
 
@@ -87,6 +87,11 @@ Puedes ajustar el entrenamiento directamente desde la terminal pasando argumento
 # Ejecutar entrenamiento con parámetros personalizados
 python train.py --epochs 40 --batch_size 16 --lr 0.0003 --val_split 0.20
 
+# Reanudar tras una interrupción (mismos argumentos y mismo --output)
+python train.py --resume --output truepixel_v2.pth
+
+El primer entrenamiento descarga los pesos de ResNet18 preentrenada en ImageNet (~45 MB).
+
 
 Parámetros Disponibles:
 
@@ -107,6 +112,8 @@ Parámetros Disponibles:
 --seed: Semilla para reproducibilidad (Por defecto: 42).
 
 --output: Nombre del archivo de salida para los pesos (Por defecto: truepixel_v1.pth).
+
+--resume: Continúa desde el checkpoint indicado en --output, restaurando época, mejor pérdida de validación y estado del optimizador.
 
 La división Train/Validación/Test es **estratificada** para conservar la proporción de clases. Al final del entrenamiento se reportan Accuracy, AUC-ROC, F1, Precision, Recall y la matriz de confusión sobre el conjunto de test.
 
@@ -143,8 +150,8 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
   "archivo": "muestra_sospechosa.png",
   "probabilidad_ia_porcentaje": 91.43,
   "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA",
-  "version_modelo": "3.0.0",
-  "version_api": "3.0.0"
+  "version_modelo": "3.1.0",
+  "version_api": "3.1.0"
 }
 
 Endpoints disponibles:

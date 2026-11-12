@@ -13,7 +13,7 @@ def _entrada():
 
 
 def test_grad_cam_forma_y_rango():
-    modelo = TruePixelNet().eval()
+    modelo = TruePixelNet(pretrained=False).eval()
     _, tensor = _entrada()
     cam = grad_cam(modelo, tensor)
     assert cam.dim() == 2
@@ -28,7 +28,7 @@ def test_mapa_espectral_forma_y_rango():
 
 
 def test_superponer_respeta_tamano_original():
-    modelo = TruePixelNet().eval()
+    modelo = TruePixelNet(pretrained=False).eval()
     imagen, tensor = _entrada()
     cam = grad_cam(modelo, tensor)
     overlay = superponer(imagen, cam)
@@ -37,7 +37,7 @@ def test_superponer_respeta_tamano_original():
 
 
 def test_generar_explicaciones_devuelve_dos_vistas():
-    modelo = TruePixelNet().eval()
+    modelo = TruePixelNet(pretrained=False).eval()
     imagen, tensor = _entrada()
     explicaciones = generar_explicaciones(modelo, tensor, imagen)
     assert set(explicaciones) == {"overlay", "espectral"}

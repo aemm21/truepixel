@@ -19,7 +19,7 @@ def _png_bytes():
 @pytest.fixture
 def ruta_modelo_valido(tmp_path):
     ruta = tmp_path / "modelo_valido.pth"
-    guardar_checkpoint(TruePixelNet(), ruta)
+    guardar_checkpoint(TruePixelNet(pretrained=False), ruta)
     return ruta
 
 

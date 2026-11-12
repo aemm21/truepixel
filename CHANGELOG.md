@@ -4,6 +4,21 @@ Todas las modificaciones relevantes de este proyecto se documentan aquí.
 El formato sigue una adaptación de [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.1.0] - 2026-11-12
+
+### Añadido
+- `train.py`: opción `--resume` para continuar el entrenamiento desde el último checkpoint; se guarda el estado del optimizador para reanudar sin perder momento/velocidad de Adam.
+- Test de ida y vuelta del checkpoint con estado del optimizador.
+
+### Cambiado
+- `model.py`: la rama espacial usa ResNet18 preentrenada en ImageNet (~11M parámetros) en lugar de la CNN ligera, manteniendo la rama de Fourier y la compatibilidad con Grad-CAM. Se espera una mejora sustancial de AUC/F1.
+- `train.py`: salida con flushing por línea para ver el progreso en PowerShell/Tee y otros pipes.
+- `api.py` y `verify.py`: construyen el modelo con `pretrained=False`, ya que los pesos se cargan desde el checkpoint (sin descargas en inferencia).
+- Versión 3.1.0.
+
+### Nota de compatibilidad
+- Los checkpoints de V3.0 (CNN ligera) no son compatibles con la rama ResNet18 de V3.1. Es necesario reentrenar el modelo.
+
 ## [3.0.0] - 2026-11-11
 
 ### Añadido

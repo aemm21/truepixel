@@ -1,5 +1,6 @@
 import random
 import argparse
+import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -191,7 +192,8 @@ def entrenar_modelo(args):
         return
 
     # 5. Inicializar Modelo, Función de Pérdida y Optimizador
-    modelo = TruePixelNet().to(device)
+    # Al reanudar no hace falta descargar los pesos preentrenados de ImageNet.
+    modelo = TruePixelNet(pretrained=not args.resume).to(device)
 
     # BCEWithLogitsLoss combina Sigmoid + BCE de forma numéricamente estable.
     # pos_weight compensa el desbalance de clases (más reales que sintéticas o viceversa).
@@ -210,14 +212,38 @@ def entrenar_modelo(args):
         weight_decay=args.weight_decay # Regularización para evitar sobreajuste
     )
 
+    epoca_inicial = 0
     best_val_loss = float('inf')
     mejor_guardado = False
+
+    if args.resume:
+        try:
+            metadatos_resume = cargar_checkpoint(modelo, args.output, device)
+            epoca_inicial = int(metadatos_resume.get("epoch", 0))
+            valor_val_loss = metadatos_resume.get("val_loss")
+            best_val_loss = (
+                float(valor_val_loss)
+                if isinstance(valor_val_loss, (int, float))
+                else float('inf')
+            )
+            estado_optimizador = metadatos_resume.get("optimizer_state_dict")
+            if estado_optimizador:
+                optimizador.load_state_dict(estado_optimizador)
+        except Exception as exc:
+            print(f"❌ No se pudo reanudar desde '{args.output}': {exc}")
+            return
+        mejor_guardado = True
+        print(f"♻️ Reanudando desde la época {epoca_inicial} "
+              f"(mejor val_loss: {best_val_loss:.4f})")
+        if epoca_inicial >= args.epochs:
+            print(f"⚠️ El checkpoint ya alcanzó la época {epoca_inicial}; "
+                  f"usa --epochs mayor que {epoca_inicial} para seguir entrenando.")
 
     # 6. Bucle de Entrenamiento y Validación
     print(f"\n🎮 Iniciando entrenamiento: {args.epochs} épocas | Tasa de aprendizaje: {args.lr}")
     print("=" * 100)
 
-    for epoca in range(args.epochs):
+    for epoca in range(epoca_inicial, args.epochs):
         # --- FASE DE ENTRENAMIENTO ---
         modelo.train()
         running_loss = 0.0
@@ -255,13 +281,13 @@ def entrenar_modelo(args):
                 "epoch": epoca + 1,
                 "val_loss": epoch_val_loss,
                 "val_metrics": metricas_val,
-            })
+            }, optimizador=optimizador)
             print(f"💾 ¡Nuevo mejor modelo guardado en '{args.output}'!")
 
     # Si no hubo conjunto de validación (val_split=0), guardamos el modelo final
     # para que verify.py y api.py tengan pesos que cargar.
     if not mejor_guardado:
-        guardar_checkpoint(modelo, args.output, {"epoch": args.epochs})
+        guardar_checkpoint(modelo, args.output, {"epoch": args.epochs}, optimizador=optimizador)
         print(f"💾 Modelo final guardado en '{args.output}' (sin validación).")
 
     print("=" * 100)
@@ -281,6 +307,11 @@ def entrenar_modelo(args):
 
 
 def main():
+    # Con stdout en pipe (PowerShell/Tee) el buffer oculta el progreso; forzamos
+    # escritura por línea para poder seguir el entrenamiento en vivo.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+
     # Analizador de argumentos para facilitar las contribuciones desde la terminal
     parser = argparse.ArgumentParser(description="TruePixel: Entrenamiento de Redes Convolucionales para Verificación de Imágenes")
 
@@ -300,6 +331,7 @@ def main():
 
     # Salida
     parser.add_argument('--output', type=str, default='truepixel_v1.pth', help='Nombre del archivo de pesos de salida')
+    parser.add_argument('--resume', action='store_true', help='Continúa desde el checkpoint indicado en --output')
 
     args = parser.parse_args()
     entrenar_modelo(args)
