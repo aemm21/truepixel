@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "truepixel"
-version = "3.1.0"
+version = "3.2.0"
 description = "Motor ligero y open-source de verificación de imágenes generadas por IA (espacial + Fourier)."
 readme = "README.md"
 license = { text = "MIT" }
@@ -25,6 +25,7 @@ dev = ["pytest>=8.0.0", "httpx>=0.27.0"]
 [project.scripts]
 truepixel-verify = "verify:main"
 truepixel-train = "train:main"
+truepixel-evaluate = "evaluate:main"
 
 [tool.setuptools]
-py-modules = ["api", "checkpoint", "config", "dataset", "explain", "fourier", "model", "train", "verify"]
+py-modules = ["api", "checkpoint", "config", "dataset", "evaluate", "explain", "fourier", "model", "train", "verify"]

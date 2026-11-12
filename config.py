@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 
 # --- Imagen / normalización -------------------------------------------------
 IMAGE_SIZE = 224

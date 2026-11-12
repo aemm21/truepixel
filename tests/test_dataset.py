@@ -51,6 +51,19 @@ def test_forma_del_tensor(tmp_path):
     assert etiqueta.shape == (1,)
 
 
+def test_devuelve_ruta_si_se_solicita(tmp_path):
+    reales, sinteticas = _carpetas(tmp_path)
+    _crear_imagen(reales / "a.jpg")
+    _crear_imagen(sinteticas / "b.jpg")
+
+    ds = TruePixelDataset(str(reales), str(sinteticas), devolver_ruta=True)
+    imagen, etiqueta, ruta = ds[0]
+
+    assert imagen.shape == (3, 224, 224)
+    assert etiqueta.shape == (1,)
+    assert ruta == ds.rutas_imagenes[0]
+
+
 def test_carpetas_inexistentes(tmp_path):
     with pytest.raises(FileNotFoundError):
         TruePixelDataset(str(tmp_path / "no_existe"), str(tmp_path))

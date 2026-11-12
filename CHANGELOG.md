@@ -4,6 +4,15 @@ Todas las modificaciones relevantes de este proyecto se documentan aquí.
 El formato sigue una adaptación de [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.2.0] - 2026-11-12
+
+### Añadido
+- `evaluate.py`: evaluación de checkpoints sobre carpetas etiquetadas con Accuracy, AUC, F1, Precision, Recall, especificidad y matriz de confusión.
+- Barrido de umbrales de decisión (0.01–0.99) con selección del mejor F1 y mejor balanced accuracy.
+- Salida JSON del resumen y CSV con las predicciones por imagen (rutas neutralizadas contra CSV injection).
+- Script `truepixel-evaluate` y tests de la evaluación.
+- `TruePixelDataset(..., devolver_ruta=True)` para conservar la ruta real y deduplicar imágenes omitidas durante la evaluación.
+
 ## [3.1.0] - 2026-11-12
 
 ### Añadido

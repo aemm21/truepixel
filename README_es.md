@@ -1,6 +1,6 @@
 👁️ TruePixel: Motor de Verificación de Imágenes por IA de Código Abierto
 
-**Versión 3.1.0** — ver [CHANGELOG.md](CHANGELOG.md)
+**Versión 3.2.0** — ver [CHANGELOG.md](CHANGELOG.md)
 
 👉 English version of this document
 
@@ -58,9 +58,10 @@ El proyecto mantiene una estructura modular y limpia para facilitar la extensibi
 | `checkpoint.py` | Guardado/carga de pesos con metadatos y compatibilidad con `state_dict` antiguos. |
 | `explain.py` | Explicabilidad: Grad-CAM y mapa espectral coloreado. |
 | `train.py` | Entrenamiento CLI con split estratificado Train/Val/Test y métricas AUC/F1. |
+| `evaluate.py` | Evaluación con AUC/F1/matriz de confusión y barrido de umbrales sobre carpetas etiquetadas. |
 | `verify.py` | Herramienta CLI para evaluar una imagen (reporte legible o `--json`). |
 | `api.py` | Servidor FastAPI con `/health`, CORS y documentación interactiva. |
-| `tests/` | Suite de `pytest` (Fourier, modelo, dataset, métricas, checkpoints y API). |
+| `tests/` | Suite de `pytest` (Fourier, modelo, dataset, métricas, checkpoints, evaluación y API). |
 | `Dockerfile` | Imagen de producción con PyTorch CPU y uvicorn. |
 | `CHANGELOG.md` | Historial de versiones. |
 
@@ -117,6 +118,17 @@ Parámetros Disponibles:
 
 La división Train/Validación/Test es **estratificada** para conservar la proporción de clases. Al final del entrenamiento se reportan Accuracy, AUC-ROC, F1, Precision, Recall y la matriz de confusión sobre el conjunto de test.
 
+📏 Evaluación con Métricas
+
+Si tienes carpetas etiquetadas (reales e IA), `evaluate.py` calcula AUC, F1, precisión, recall, especificidad y la matriz de confusión, y busca el mejor umbral de decisión:
+
+# Evaluar el test reservado y guardar las predicciones
+python evaluate.py --dir_reales C:\datasets\ai-real\test\real --dir_sinteticas C:\datasets\ai-real\test\fake --modelo truepixel_v2.pth --csv predicciones.csv
+
+Parámetros: `--umbral` (0.5 por defecto), `--json`, `--csv`, `--batch_size`, `--num_workers` y `--recursivo`.
+
+El barrido de umbrales se calcula sobre el mismo conjunto evaluado; para producción, ajusta el umbral en validación y confírmalo en un test independiente.
+
 🔎 Verificación Local y por Lotes
 
 `verify.py` acepta una imagen, una carpeta (recursiva) o un ZIP:
@@ -150,8 +162,8 @@ Allí podrás enviar solicitudes POST de prueba adjuntando una imagen y obtenien
   "archivo": "muestra_sospechosa.png",
   "probabilidad_ia_porcentaje": 91.43,
   "veredicto": "ALTA PROBABILIDAD DE DEEPFAKE / IA",
-  "version_modelo": "3.1.0",
-  "version_api": "3.1.0"
+  "version_modelo": "3.2.0",
+  "version_api": "3.2.0"
 }
 
 Endpoints disponibles:
@@ -179,7 +191,7 @@ docker run -p 8000:8000 -v "$PWD/truepixel_v1.pth:/app/truepixel_v1.pth" truepix
 
 🧪 Pruebas
 
-El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `explain.py`, `train.py` (métricas), análisis por lotes y la API (incluida una inferencia end-to-end):
+El proyecto incluye una suite con `pytest` para `fourier.py`, `model.py`, `dataset.py`, `config.py`, `checkpoint.py`, `explain.py`, `train.py` (métricas), `evaluate.py`, análisis por lotes y la API (incluida una inferencia end-to-end):
 
 # Instalar dependencias de desarrollo y ejecutar las pruebas
 pip install -r requirements-dev.txt

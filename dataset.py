@@ -7,7 +7,7 @@ from config import EXTENSIONES_VALIDAS, transform_inferencia, validar_tamano_ima
 
 
 class TruePixelDataset(Dataset):
-    def __init__(self, directorio_real, directorio_ia, transform=None, recursivo=False):
+    def __init__(self, directorio_real, directorio_ia, transform=None, recursivo=False, devolver_ruta=False):
         """
         Inicializa el dataset leyendo las rutas de las imágenes.
 
@@ -16,9 +16,11 @@ class TruePixelDataset(Dataset):
             directorio_ia: carpeta con imágenes sintéticas (etiqueta 1).
             transform: transformación opcional de torchvision.
             recursivo: si True, busca imágenes en subcarpetas.
+            devolver_ruta: si True, __getitem__ también devuelve la ruta de la imagen.
         """
         self.rutas_imagenes = []
         self.etiquetas = []
+        self.devolver_ruta = devolver_ruta
 
         # Validar que las carpetas existan para evitar errores
         if not os.path.exists(directorio_real):
@@ -79,6 +81,8 @@ class TruePixelDataset(Dataset):
                     imagen = imagen.convert('RGB')
                 imagen_tensor = self.transform(imagen)
                 etiqueta_tensor = torch.tensor([etiqueta], dtype=torch.float32)
+                if self.devolver_ruta:
+                    return imagen_tensor, etiqueta_tensor, ruta_img
                 return imagen_tensor, etiqueta_tensor
             except Exception as exc:
                 intentos += 1
