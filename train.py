@@ -1,6 +1,5 @@
 import random
 import argparse
-import os
 import sys
 import torch
 import torch.nn as nn
@@ -115,10 +114,6 @@ def entrenar_modelo(args):
         raise SystemExit("❌ val_split y test_split deben estar en el rango [0, 1).")
     if args.val_split + args.test_split >= 1:
         raise SystemExit("❌ val_split + test_split debe ser menor que 1.")
-    if args.init and os.path.normcase(os.path.abspath(args.init)) == os.path.normcase(os.path.abspath(args.output)):
-        print("❌ --init y --output no pueden ser el mismo archivo. "
-              "Usa un nombre nuevo (ej. truepixel_v3.pth).")
-        return
 
     # 1. Configuración del hardware (Prioriza GPU CUDA, luego MPS para Mac, y finalmente CPU)
     if torch.cuda.is_available():
@@ -197,18 +192,8 @@ def entrenar_modelo(args):
         return
 
     # 5. Inicializar Modelo, Función de Pérdida y Optimizador
-    # Al reanudar o hacer fine-tuning no hace falta descargar los pesos de ImageNet.
-    modelo = TruePixelNet(pretrained=not (args.resume or args.init)).to(device)
-
-    if args.init:
-        try:
-            metadatos_init = cargar_checkpoint(modelo, args.init, device)
-        except Exception as exc:
-            print(f"❌ No se pudo inicializar desde '{args.init}': {exc}")
-            return
-        print(f"🌱 Pesos inicializados desde '{args.init}' "
-              f"(versión {metadatos_init.get('version', 'desconocida')}); "
-              f"época y optimizador reiniciados.")
+    # Al reanudar no hace falta descargar los pesos preentrenados de ImageNet.
+    modelo = TruePixelNet(pretrained=not args.resume).to(device)
 
     # BCEWithLogitsLoss combina Sigmoid + BCE de forma numéricamente estable.
     # pos_weight compensa el desbalance de clases (más reales que sintéticas o viceversa).
@@ -346,10 +331,7 @@ def main():
 
     # Salida
     parser.add_argument('--output', type=str, default='truepixel_v1.pth', help='Nombre del archivo de pesos de salida')
-    grupo_checkpoint = parser.add_mutually_exclusive_group()
-    grupo_checkpoint.add_argument('--resume', action='store_true', help='Continúa desde el checkpoint indicado en --output')
-    grupo_checkpoint.add_argument('--init', type=str, default=None, metavar='CHECKPOINT',
-                                  help='Inicializa los pesos desde un checkpoint para fine-tuning (reinicia época y optimizador)')
+    parser.add_argument('--resume', action='store_true', help='Continúa desde el checkpoint indicado en --output')
 
     args = parser.parse_args()
     entrenar_modelo(args)

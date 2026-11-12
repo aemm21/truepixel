@@ -4,17 +4,6 @@ Todas las modificaciones relevantes de este proyecto se documentan aquí.
 El formato sigue una adaptación de [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 
-## [3.4.0] - 2026-11-12
-
-### Añadido
-- `evaluar_ood.ps1`: evalúa el checkpoint contra cada carpeta `ai_*` de un directorio OOD, con CSV/JSON por generador y `resumen_ood.csv` comparativo.
-- `train.py --init`: inicializa los pesos desde un checkpoint para fine-tuning, reiniciando época y optimizador. No se puede combinar con `--resume` ni usar el mismo archivo en `--init` y `--output`.
-- Test de exclusividad entre `--init` y `--resume`.
-
-### Cambiado
-- `README.md` / `README_es.md`: secciones de validación OOD por generador y fine-tuning desde un checkpoint.
-- Versión 3.4.0.
-
 ## [3.3.0] - 2026-11-12
 
 ### Cambiado

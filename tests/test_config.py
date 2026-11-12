@@ -14,7 +14,7 @@ from config import (
 
 
 def test_version():
-    assert __version__ == "3.4.0"
+    assert __version__ == "3.3.0"
 
 
 def test_validar_tamano_imagen():

@@ -85,7 +85,7 @@ def test_guarda_explicaciones(tmp_path, ruta_modelo):
 def test_escribir_csv(tmp_path):
     resultados = [
         {"archivo": "a.jpg", "probabilidad_ia_porcentaje": 10.5, "veredicto": "IMAGEN REAL",
-         "version_modelo": "3.4.0"},
+         "version_modelo": "3.3.0"},
         {"archivo": "b.jpg", "error": "corrupta"},
     ]
     ruta = tmp_path / "salida.csv"
@@ -102,7 +102,7 @@ def test_escribir_csv(tmp_path):
 def test_csv_neutraliza_formulas(tmp_path):
     resultados = [
         {"archivo": "=cmd|calc", "probabilidad_ia_porcentaje": 1.0, "veredicto": "IMAGEN REAL",
-         "version_modelo": "3.4.0"},
+         "version_modelo": "3.3.0"},
     ]
     ruta = tmp_path / "salida.csv"
     _escribir_csv(resultados, ruta)

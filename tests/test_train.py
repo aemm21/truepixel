@@ -1,9 +1,6 @@
 import math
-import sys
 
-import pytest
-
-from train import calcular_auc, calcular_metricas, dividir_estratificado, main
+from train import calcular_auc, calcular_metricas, dividir_estratificado
 
 
 def test_split_estratificado_preserva_clases():
@@ -59,9 +56,3 @@ def test_metricas_perfectas():
     assert metricas["recall"] == 1.0
     assert metricas["f1"] == 1.0
     assert metricas["auc"] == 1.0
-
-
-def test_init_y_resume_son_excluyentes(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["train.py", "--resume", "--init", "modelo.pth"])
-    with pytest.raises(SystemExit):
-        main()
